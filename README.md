@@ -35,6 +35,9 @@ python run.py
 
 ## Architecture
 
+See the full architecture diagram and design explanation:
+👉 [Architecture & Recovery Design](ARCHITECTURE.md)
+
 Razor-Rescue explicitly separates **probabilistic diagnosis** (AI) from **deterministic action** (Code). This ensures that the agent operates entirely within strict, auditable financial guardrails.
 
 ```mermaid

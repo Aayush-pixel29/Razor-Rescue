@@ -1,7 +1,28 @@
 # Razor-Rescue Architecture
 
 ## System Design
+
 Razor-Rescue explicitly separates **probabilistic diagnosis** (AI) from **deterministic action** (Code). This ensures that the agent operates entirely within strict, auditable financial guardrails.
+
+### Why the LLM cannot move money
+
+```text
+LLM
+ ↓
+Diagnosis only
+ ↓
+Pydantic schema
+ ↓
+Deterministic policy
+ ↓
+Safety checks
+ ↓
+Allowed action
+ ↓
+Razorpay API
+```
+
+**A model hallucination cannot directly authorize a payment retry. The model's output is treated as untrusted input to a deterministic policy engine.**
 
 ```mermaid
 graph TD
