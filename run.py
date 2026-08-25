@@ -86,6 +86,10 @@ def main():
                 status=status
             )
             
+            # Rate limiting for Gemini Free Tier (15 Requests Per Minute)
+            # 4 seconds per record = 15 records per minute
+            time.sleep(4)
+            
         except Exception as e:
             # Graceful failure handling
             print(f"Error processing record {raw_record.get('payment_id', 'unknown')}: {e}")
