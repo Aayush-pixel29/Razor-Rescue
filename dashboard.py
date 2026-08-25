@@ -3,16 +3,27 @@ import sqlite3
 import pandas as pd
 import json
 
-st.set_page_config(page_title="Razor-Rescue Audit", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Razor-Rescue Evaluation", layout="wide", initial_sidebar_state="expanded")
 
-st.title("🛡️ Razor-Rescue: AI Revenue Recovery")
-st.markdown("Internal audit dashboard for AI-driven payment recovery. Validates **explainability** and **bounded actions**.")
+st.markdown("""
+<style>
+    .reportview-container { background: #0e1117; }
+    .status-recovered { color: #00C853; font-weight: bold; }
+    .status-escalated { color: #D50000; font-weight: bold; }
+    .metric-good { color: #00C853; font-size: 24px; font-weight: bold; }
+    .metric-bad { color: #D50000; font-size: 24px; font-weight: bold; }
+    .metric-neutral { color: #2962FF; font-size: 24px; font-weight: bold; }
+</style>
+""", unsafe_allow_html=True)
 
-@st.cache_data(ttl=5) # Cache data but refresh every 5 seconds if re-run
+st.title("🛡️ Razor-Rescue: A/B Strategy Evaluation")
+st.markdown("This dashboard proves measured ROI by comparing **Strategy A (Blind Retries)** against **Strategy B (Razor-Rescue AI + Guardrails)**.")
+
+@st.cache_data(ttl=5)
 def load_data():
     try:
-        conn = sqlite3.connect("audit.db")
-        df = pd.read_sql_query("SELECT * FROM audit_log ORDER BY timestamp DESC", conn)
+        conn = sqlite3.connect("evaluation.db")
+        df = pd.read_sql_query("SELECT * FROM eval_log", conn)
         conn.close()
         return df
     except:
@@ -21,108 +32,81 @@ def load_data():
 df = load_data()
 
 if df.empty:
-    st.warning("No audit logs found. Run the python run.py agent first!")
+    st.warning("No evaluation data found. Run `python evaluate.py --records 1000 --fast` to populate the DB.")
 else:
-    # Sidebar Filters
-    st.sidebar.header("Filter Audit Log")
-    status_filter = st.sidebar.multiselect(
-        "Filter by Status",
-        options=df['status'].unique(),
-        default=df['status'].unique()
-    )
+    baseline_df = df[df['strategy'] == 'Baseline']
+    ai_df = df[df['strategy'] == 'Razor-Rescue']
     
-    filtered_df = df[df['status'].isin(status_filter)]
+    total_records = len(baseline_df)
     
-    # Top Level Metrics
-    total = len(df)
-    recovered = df[df['status'] == 'recovered']
-    pending_links = df[df['status'] == 'link_sent_pending_payment']
-    recovery_rate = len(recovered) / total * 100 if total > 0 else 0
-    total_inr = recovered['amount_recovered'].sum() / 100
+    st.markdown("### Executive Summary")
+    c1, c2, c3 = st.columns(3)
     
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Total Failed Payments", total)
-    col2.metric("Pending Payment Links", len(pending_links))
-    col3.metric("Confirmed Recoveries", len(recovered))
-    col4.metric("True Recovery Rate", f"{recovery_rate:.1f}%")
-    col5.metric("Total INR Recovered", f"₹ {total_inr:,.2f}")
+    # Baseline Metrics
+    b_recovered = baseline_df[baseline_df['status'] == 'recovered']
+    b_bad_retries = baseline_df[baseline_df['is_bad_retry'] == 1]
+    b_inr = b_recovered['amount_recovered'].sum() / 100
     
+    # AI Metrics
+    ai_recovered = ai_df[ai_df['status'] == 'recovered']
+    ai_bad_retries = ai_df[ai_df['is_bad_retry'] == 1]
+    ai_inr = ai_recovered['amount_recovered'].sum() / 100
+    ai_links = len(ai_df[ai_df['status'] == 'link_sent'])
+    ai_escalated = len(ai_df[ai_df['status'] == 'escalated'])
+    
+    with c1:
+        st.markdown("**Metric**")
+        st.markdown("Recovery Rate")
+        st.markdown("Total ₹ Recovered")
+        st.markdown("Unsafe / Bad Retries")
+        st.markdown("Human Escalations")
+        st.markdown("Payment Links Sent")
+        
+    with c2:
+        st.markdown("**Strategy A: Dumb Baseline**")
+        st.markdown(f"**{(len(b_recovered)/total_records)*100:.1f}%**")
+        st.markdown(f"**₹ {b_inr:,.2f}**")
+        st.markdown(f"<span class='metric-bad'>{len(b_bad_retries)}</span>", unsafe_allow_html=True)
+        st.markdown("0 (Blind retry)")
+        st.markdown("0")
+        
+    with c3:
+        st.markdown("**Strategy B: Razor-Rescue**")
+        st.markdown(f"**{(len(ai_recovered)/total_records)*100:.1f}%**")
+        st.markdown(f"**₹ {ai_inr:,.2f}**")
+        st.markdown(f"<span class='metric-good'>{len(ai_bad_retries)}</span>", unsafe_allow_html=True)
+        st.markdown(f"{ai_escalated}")
+        st.markdown(f"{ai_links}")
+
     st.markdown("---")
     
-    # Layout with 2 columns: Master list on left, Details on right
-    left_col, right_col = st.columns([1.2, 1])
+    st.subheader("Deep Dive: How the Guardrails Prevented Disaster")
+    st.markdown("Select a **Risky Card** transaction that the Baseline blindly retried, but Razor-Rescue caught.")
     
-    with left_col:
-        st.subheader("Traceability Matrix")
-        
-        display_df = filtered_df[['payment_id', 'timestamp', 'status', 'amount_recovered']].copy()
-        display_df['amount_recovered'] = display_df['amount_recovered'] / 100
-        
-        # We use st.dataframe with custom column config for better readability
-        st.dataframe(
-            display_df, 
-            use_container_width=True,
-            height=500,
-            column_config={
-                "payment_id": "Payment ID",
-                "timestamp": "Time",
-                "status": "Recovery Status",
-                "amount_recovered": st.column_config.NumberColumn("₹ Recovered", format="₹%.2f")
-            }
-        )
-        
-    with right_col:
-        st.subheader("Deep Dive: Single Transaction")
-        selected_id = st.selectbox("Select Payment ID to Audit:", filtered_df['payment_id'].tolist())
+    risky_df = ai_df[(ai_df['ground_truth_cause'] == 'risky_card')]
+    if not risky_df.empty:
+        selected_id = st.selectbox("Select Risky Payment ID:", risky_df['payment_id'].tolist())
         
         if selected_id:
-            record = df[df['payment_id'] == selected_id].iloc[0]
+            baseline_record = baseline_df[baseline_df['payment_id'] == selected_id].iloc[0]
+            ai_record = ai_df[ai_df['payment_id'] == selected_id].iloc[0]
             
-            try: input_data = json.loads(record['input_data']) 
-            except: input_data = {}
-            
-            try: llm_data = json.loads(record['classification_result'])
-            except: llm_data = {"error": str(record['classification_result'])}
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.error("#### Strategy A: Baseline Action")
+                st.write("**Action:** Blind Immediate Retry")
+                st.write(f"**Result:** {baseline_record['status']}")
+                st.write(f"**Bad Retry?** {'Yes (Flagged by bank)' if baseline_record['is_bad_retry'] else 'No'}")
                 
-            try: decision_data = json.loads(record['decision_result'])
-            except: decision_data = {"error": str(record['decision_result'])}
-                
-            try: exec_data = json.loads(record['execution_outcome'])
-            except: exec_data = {"error": str(record['execution_outcome'])}
-            
-            # 1. Original Failure
-            st.markdown("#### 1. The Failure (Input)")
-            err_code = input_data.get('error_code', 'Unknown')
-            err_desc = input_data.get('error_description', 'No description')
-            st.error(f"**{err_code}**: {err_desc}")
-            
-            # 2. LLM Brain
-            st.markdown("#### 2. AI Classification (LLM)")
-            root_cause = llm_data.get('root_cause', 'unknown')
-            conf = llm_data.get('confidence_score', 0.0)
-            reasoning = llm_data.get('reasoning', '')
-            st.warning(f"**Diagnosed Cause:** `{root_cause}` (Confidence: {conf*100}%)\n\n**AI Reasoning:** {reasoning}")
-            
-            # 3. Guardrails
-            st.markdown("#### 3. Guardrail Execution (Code)")
-            action = decision_data.get('action', 'unknown')
-            rule_reason = decision_data.get('reason', '')
-            st.info(f"**Enforced Action:** `{action}`\n\n**Rule Triggered:** {rule_reason}")
-            
-            # 4. Final Outcome
-            st.markdown("#### 4. API Outcome")
-            outcome_status = exec_data.get('status', 'Unknown')
-            if 'link sent' in outcome_status.lower() or 'success' in outcome_status.lower() or 'scheduled' in outcome_status.lower():
-                st.success(f"**Result:** {outcome_status}")
-            elif outcome_status == 'Escalated to human review':
-                st.error(f"**Result:** {outcome_status}")
-            else:
-                st.error(f"**Result:** {outcome_status}")
-                
-            with st.expander("View Raw JSON Trace"):
-                st.json({
-                    "input": input_data,
-                    "classification": llm_data,
-                    "decision": decision_data,
-                    "execution": exec_data
-                })
+            with col_b:
+                st.success("#### Strategy B: Razor-Rescue")
+                try:
+                    dec = json.loads(ai_record['guardrail_action'])
+                    st.write(f"**Action:** {dec['action']}")
+                    st.write(f"**Reason:** {dec['reason']}")
+                except:
+                    st.write(f"**Action:** {ai_record['status']}")
+                    
+            with st.expander("View AI Classification JSON"):
+                try: st.json(json.loads(ai_record['llm_classification']))
+                except: st.write(ai_record['llm_classification'])

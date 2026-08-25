@@ -5,12 +5,19 @@ class DecisionEngine:
         self.max_retries = 3
 
     def decide_action(self, classification: ClassificationResult, record: PaymentRecord) -> DecisionResult:
-        # Bounded Rule 0: Low confidence fallback
+        # Bounded Rule 0: Confidence Calibration (3-Tiered Policy)
         if classification.confidence_score < 0.70:
             return DecisionResult(
                 action="escalate_to_human",
                 reason=f"LLM confidence ({classification.confidence_score}) is below the safe threshold of 0.70. Escalating.",
                 requires_api_call=False
+            )
+        elif 0.70 <= classification.confidence_score < 0.85:
+            # Restricted Action: Even if it thinks it knows the cause, don't auto-retry. Send a link instead so the user verifies.
+            return DecisionResult(
+                action="send_payment_link",
+                reason=f"LLM confidence ({classification.confidence_score}) is in the restricted tier (0.70-0.85). Defaulting to safe manual link.",
+                requires_api_call=True
             )
 
         # Bounded Rule 1: No auto-retries on risky cards (Fraud prevention)
@@ -29,7 +36,7 @@ class DecisionEngine:
                 requires_api_call=False
             )
 
-        # Main Business Logic Mapping based on Root Cause
+        # Main Business Logic Mapping based on Root Cause (For High Confidence > 0.85)
         if classification.root_cause == "insufficient_funds":
             return DecisionResult(
                 action="retry_delayed",
