@@ -1,0 +1,4 @@
+razorpay
+pydantic
+python-dotenv
+google-generativeai
