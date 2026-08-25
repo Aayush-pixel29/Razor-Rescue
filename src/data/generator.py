@@ -1,5 +1,4 @@
 import random
-import uuid
 from typing import List, Dict, Any
 
 def generate_synthetic_batch(num_records: int = 50) -> List[Dict[str, Any]]:
