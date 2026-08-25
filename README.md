@@ -14,7 +14,7 @@ Razor-Rescue acts as a highly intelligent router. It reads the messy error logs 
 This repository contains two distinct execution workflows depending on whether you are running a batch simulation evaluation or hitting the live Razorpay Test APIs.
 
 ### 1. The Evaluation Harness (Simulation & Benchmarking)
-Proves the mathematical ROI of the agent against a "Blind Retry" baseline.
+Benchmarks the agent's simulated recovery performance against a "Blind Retry" baseline.
 ```bash
 python evaluate.py --records 5000 --fast
 streamlit run dashboard.py
@@ -95,7 +95,7 @@ During testing, we discovered that a medium-confidence risky transaction could r
 
 ### 2. What broke: Recovery Measurement
 Initially, payment-link creation was treated as a recovery action but wasn't counted as recovered revenue. That was correct financially, but meant our evaluation benchmark showed `₹0` recovered for those branches.
-**How we recovered:** We implemented a simulated downstream outcome (`Payment Link created` ➡️ `Customer conversion simulated` ➡️ `Payment successful` ➡️ `₹ recovered`). Our evaluation simulator now mathematically supports link conversion based on realistic statistical probabilities, allowing us to honestly measure `₹ recovered` across a batch. 
+**How we recovered:** We implemented a simulated downstream outcome (`Payment Link created` ➡️ `Customer conversion simulated` ➡️ `Payment successful` ➡️ `₹ recovered`). Our evaluation simulator now mathematically supports link conversion based on controlled synthetic outcome probabilities, allowing us to honestly measure `₹ recovered` across a batch. 
 
 ## How to Set Up
 

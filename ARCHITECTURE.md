@@ -83,4 +83,4 @@ Initially, payment-link creation was treated as a recovery action but wasn't cou
 We implemented a simulated downstream outcome.
 `Payment failed` ➡️ `Payment Link created` ➡️ `Customer conversion simulated (40% probability)` ➡️ `Payment successful` ➡️ `₹ recovered`
 
-Our evaluation simulator now mathematically supports payment-link conversion and delayed-retry outcomes based on realistic statistical probabilities, allowing us to honestly measure `₹ recovered` across a batch without artificially inflating numbers.
+Our evaluation simulator now mathematically supports payment-link conversion and delayed-retry outcomes based on controlled synthetic outcome probabilities, allowing us to honestly measure `₹ recovered` across a batch without artificially inflating numbers.
