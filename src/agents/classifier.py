@@ -10,7 +10,7 @@ if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
 class PaymentClassifierAgent:
     def __init__(self):
         # We use Gemini 1.5 Pro or Flash to process the payload
-        self.model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def classify_failure(self, payment_record: Dict[str, Any]) -> ClassificationResult:
         if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
