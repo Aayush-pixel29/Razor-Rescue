@@ -108,7 +108,7 @@ def main():
         if (i+1) % 10 == 0:
             print(f"  Processed {i+1}/{args.records} records...")
 
-    print("\n[DONE] Evaluation complete! Run 'streamlit run eval_dashboard.py' to see the comparison.")
+    print("\n[DONE] Evaluation complete! Run 'streamlit run dashboard.py' to see the comparison.")
 
 if __name__ == "__main__":
     main()
