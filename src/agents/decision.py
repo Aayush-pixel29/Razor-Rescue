@@ -5,6 +5,14 @@ class DecisionEngine:
         self.max_retries = 3
 
     def decide_action(self, classification: ClassificationResult, record: PaymentRecord) -> DecisionResult:
+        # Bounded Rule 0: Low confidence fallback
+        if classification.confidence_score < 0.70:
+            return DecisionResult(
+                action="escalate_to_human",
+                reason=f"LLM confidence ({classification.confidence_score}) is below the safe threshold of 0.70. Escalating.",
+                requires_api_call=False
+            )
+
         # Bounded Rule 1: No auto-retries on risky cards (Fraud prevention)
         if classification.root_cause == "risky_card":
             return DecisionResult(

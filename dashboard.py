@@ -22,22 +22,22 @@ df = load_data()
 if df.empty:
     st.warning("No audit logs found. Run the python run.py agent first!")
 else:
-    # Metrics
     total = len(df)
     recovered = df[df['status'] == 'recovered']
+    pending_links = df[df['status'] == 'link_sent_pending_payment']
     recovery_rate = len(recovered) / total * 100 if total > 0 else 0
     total_inr = recovered['amount_recovered'].sum() / 100
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Total Failed Payments", total)
-    col2.metric("Successful Recoveries", len(recovered))
-    col3.metric("Recovery Rate", f"{recovery_rate:.1f}%")
-    col4.metric("Total INR Recovered", f"₹ {total_inr:,.2f}")
+    col2.metric("Pending Payment Links", len(pending_links))
+    col3.metric("Confirmed Recoveries", len(recovered))
+    col4.metric("True Recovery Rate", f"{recovery_rate:.1f}%")
+    col5.metric("Total INR Recovered", f"₹ {total_inr:,.2f}")
     
     st.markdown("---")
     st.subheader("Traceability Matrix: LLM vs Guardrails")
     
-    # Clean up df for display
     display_df = df[['payment_id', 'timestamp', 'status', 'amount_recovered']].copy()
     display_df['amount_recovered'] = display_df['amount_recovered'] / 100
     st.dataframe(display_df, use_container_width=True)
@@ -52,11 +52,21 @@ else:
         c1, c2, c3 = st.columns(3)
         with c1:
             st.info("**1. Input Failure Data**")
-            st.json(json.loads(record['input_data']))
+            try:
+                st.json(json.loads(record['input_data']))
+            except:
+                st.write(record['input_data'])
         with c2:
             st.warning("**2. LLM Classification**")
-            st.json(json.loads(record['classification_result']))
+            try:
+                st.json(json.loads(record['classification_result']))
+            except:
+                st.write(record['classification_result'])
         with c3:
             st.success("**3. Guardrail Action & Outcome**")
-            st.json(json.loads(record['decision_result']))
-            st.json(json.loads(record['execution_outcome']))
+            try:
+                st.json(json.loads(record['decision_result']))
+                st.json(json.loads(record['execution_outcome']))
+            except:
+                st.write(record['decision_result'])
+                st.write(record['execution_outcome'])

@@ -34,8 +34,8 @@ The LLM **never** decides to move money directly. It only classifies. The Decisi
 ### 3. Execution Layer
 Connects to Razorpay Test APIs to generate a new Payment Link when the user needs to re-authenticate (OTP failure) or use a different payment method (Card Expired).
 
-### 4. Audit & Metrics
-Every single step (Input -> LLM Thought -> Guardrail Decision -> API Outcome) is logged into an SQLite database (`audit.db`). This guarantees total explainability and allows us to generate honest, measured metrics (Recovery Rate and ₹ Amount Recovered).
+### 4. Audit & Metrics (Structured Logging)
+Every single step (Input -> LLM Thought -> Guardrail Decision -> API Outcome) is logged into an SQLite database (`audit.db`). This guarantees total explainability and allows us to generate honest, measured metrics (Recovery Rate and INR Amount Recovered). In a production deployment, this SQLite logger would be replaced with a structured logging pipeline (e.g., ELK stack).
 
 ## How to Run
 
@@ -44,14 +44,27 @@ Every single step (Input -> LLM Thought -> Guardrail Decision -> API Outcome) is
 pip install -r requirements.txt
 ```
 
-2. Add your `.env` variables:
+2. Add your `.env` variables (use `.env.example` as a template):
 ```env
 RAZORPAY_KEY_ID=rzp_test_...
 RAZORPAY_KEY_SECRET=...
 GEMINI_API_KEY=...
 ```
 
-3. Run the batch process:
+3. Run the backend batch process:
 ```bash
 python run.py
+```
+
+4. **Launch the Audit Dashboard (UI)**:
+After `audit.db` is generated, run the Streamlit dashboard to visually audit the LLM decisions vs Guardrails:
+```bash
+streamlit run dashboard.py
+```
+
+## Running Tests
+To prove the guardrails work deterministically, you can run the unit tests:
+```bash
+pip install pytest
+pytest tests/
 ```
