@@ -16,8 +16,8 @@ class RazorpayService:
                 "description": description,
                 "customer": customer,
                 "notify": {
-                    "sms": False,
-                    "email": False
+                    "sms": True,
+                    "email": True
                 },
                 "reminder_enable": False,
                 "notes": {

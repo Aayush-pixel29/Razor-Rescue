@@ -1,41 +1,54 @@
-import json
 import random
-from datetime import datetime, timedelta
+import uuid
+from typing import List, Dict, Any
 
-def generate_synthetic_batch(num_records: int = 50):
-    reasons = [
-        ("BAD_REQUEST_ERROR", "payment_failed", "The payment was failed due to incorrect OTP"),
-        ("GATEWAY_ERROR", "payment_failed", "Bank timeout occurred"),
-        ("BAD_REQUEST_ERROR", "payment_failed", "Insufficient balance in the account"),
-        ("BAD_REQUEST_ERROR", "payment_failed", "Card has expired"),
-        ("RISK_ERROR", "payment_failed", "Transaction flagged by risk rules"),
-        ("GATEWAY_ERROR", "payment_failed", "Network error while connecting to bank")
+def generate_synthetic_batch(num_records: int = 50) -> List[Dict[str, Any]]:
+    records = []
+    
+    failure_scenarios = [
+        {
+            "code": "BAD_REQUEST_ERROR",
+            "desc": "Customer entered OTP twice but bank session expired during verification.",
+            "reason": "payment_failed"
+        },
+        {
+            "code": "GATEWAY_ERROR",
+            "desc": "Payment failed after issuer response timed out; customer balance appears sufficient.",
+            "reason": "payment_failed"
+        },
+        {
+            "code": "BAD_REQUEST_ERROR",
+            "desc": "Transaction blocked by issuer risk system after unusual velocity and device change.",
+            "reason": "payment_failed"
+        },
+        {
+            "code": "BAD_REQUEST_ERROR",
+            "desc": "Card returned expiry mismatch after migration.",
+            "reason": "payment_failed"
+        },
+        {
+            "code": "GATEWAY_ERROR",
+            "desc": "Insufficient funds detected during authorization hold.",
+            "reason": "payment_failed"
+        }
     ]
     
-    records = []
-    for i in range(num_records):
-        error = random.choice(reasons)
-        record = {
-            "payment_id": f"pay_fake_{random.randint(100000, 999999)}",
-            "amount": random.randint(100, 5000) * 100, # paise
+    for _ in range(num_records):
+        scenario = random.choice(failure_scenarios)
+        records.append({
+            "payment_id": f"pay_{uuid.uuid4().hex[:10]}",
+            "amount": random.randint(100, 5000) * 100, # INR in paise
             "currency": "INR",
             "status": "failed",
-            "error_code": error[0],
-            "error_reason": error[1],
-            "error_description": error[2],
+            "error_code": scenario["code"],
+            "error_reason": scenario["reason"],
+            "error_description": scenario["desc"],
             "customer_id": f"cust_{random.randint(10000, 99999)}",
-            "contact": "+919876543210",
-            "email": f"customer{i}@example.com",
-            "retry_count": random.choice([0, 0, 0, 1, 2, 3, 4]), # Some will exceed max retries
+            "contact": f"+9198765{random.randint(10000, 99999)}",
+            "email": "customer@example.com",
+            "retry_count": random.choice([0, 0, 1, 2, 4]), # Include max retries
             "card_network": random.choice(["Visa", "MasterCard", "RuPay"]),
-            "created_at": int((datetime.now() - timedelta(days=random.randint(0, 5))).timestamp())
-        }
-        records.append(record)
+            "created_at": int(1707433011 - random.randint(0, 100000))
+        })
         
     return records
-
-if __name__ == "__main__":
-    records = generate_synthetic_batch(50)
-    with open("data_batch.json", "w") as f:
-        json.dump(records, f, indent=2)
-    print(f"Generated {len(records)} records in data_batch.json")

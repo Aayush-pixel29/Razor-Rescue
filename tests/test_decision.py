@@ -1,23 +1,27 @@
+import pytest
 from src.agents.decision import DecisionEngine
 from src.models.schemas import ClassificationResult, PaymentRecord
 
-def test_guardrail_max_retries():
+def test_hard_stop_risky_card_overrides_confidence():
     engine = DecisionEngine()
-    record = PaymentRecord(payment_id="123", amount=1000, status="failed", retry_count=4, created_at=0)
-    classification = ClassificationResult(root_cause="insufficient_funds", confidence_score=0.9, reasoning="")
+    classification = ClassificationResult(root_cause="risky_card", confidence_score=0.80, reasoning="Medium confidence risk")
+    record = PaymentRecord(payment_id="123", amount=100, currency="INR", status="failed", retry_count=0)
+    
     decision = engine.decide_action(classification, record)
-    assert decision.action == "escalate_to_human"
+    assert decision.action == "escalate_to_human" # Must not be send_payment_link
 
-def test_guardrail_risky_card():
+def test_hard_stop_max_retries_overrides_confidence():
     engine = DecisionEngine()
-    record = PaymentRecord(payment_id="123", amount=1000, status="failed", retry_count=0, created_at=0)
-    classification = ClassificationResult(root_cause="risky_card", confidence_score=0.9, reasoning="")
+    classification = ClassificationResult(root_cause="network_error", confidence_score=0.99, reasoning="Definite network timeout")
+    record = PaymentRecord(payment_id="123", amount=100, currency="INR", status="failed", retry_count=4)
+    
     decision = engine.decide_action(classification, record)
-    assert decision.action == "escalate_to_human"
+    assert decision.action == "escalate_to_human" # Must not be retry_immediately
 
-def test_guardrail_low_confidence():
+def test_medium_confidence_downgrades_to_link():
     engine = DecisionEngine()
-    record = PaymentRecord(payment_id="123", amount=1000, status="failed", retry_count=0, created_at=0)
-    classification = ClassificationResult(root_cause="insufficient_funds", confidence_score=0.6, reasoning="Not sure")
+    classification = ClassificationResult(root_cause="network_error", confidence_score=0.75, reasoning="Looks like network timeout")
+    record = PaymentRecord(payment_id="123", amount=100, currency="INR", status="failed", retry_count=0)
+    
     decision = engine.decide_action(classification, record)
-    assert decision.action == "escalate_to_human"
+    assert decision.action == "send_payment_link" # Downgraded from immediate_retry due to <0.85 conf
