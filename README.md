@@ -15,6 +15,8 @@ This repository contains two distinct execution workflows depending on whether y
 
 ### 1. The Evaluation Harness (Simulation & Benchmarking)
 Benchmarks the agent's simulated recovery performance against a "Blind Retry" baseline.
+> [!NOTE]
+> The `--fast` flag uses a deterministic rule-based evaluation classifier to stress-test the `DecisionEngine` policy branches locally without consuming LLM API credits. It is a reproducible policy benchmark, not a substitute for the real Gemini LLM. All payment IDs are deterministically seeded.
 ```bash
 python evaluate.py --records 5000 --fast
 streamlit run dashboard.py

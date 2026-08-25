@@ -67,6 +67,6 @@ class PaymentClassifierAgent:
         
         return ClassificationResult(
             root_cause=cause,
-            confidence_score=0.8,
+            confidence_score=0.95,
             reasoning="Fallback pattern matching based on error description."
         )
