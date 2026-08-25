@@ -46,26 +46,49 @@ def main():
                 )
                 if link:
                     execution_outcome["payment_link"] = link
-                    execution_outcome["status"] = "Link sent - Pending Payment"
-                    status = "link_sent_pending_payment"
-                    # Amount is NOT recovered yet!
+                    # Use simulator to determine if customer actually paid it later
+                    # (Avoids claiming fake immediate revenue for a link)
+                    from src.services.simulator import PaymentSimulator
+                    from evaluate import determine_truth
+                    truth = determine_truth(raw_record)
+                    success, amount, msg, is_bad = PaymentSimulator.simulate_payment_link(truth, record)
+                    
+                    if success:
+                        execution_outcome["status"] = "Link sent -> Customer Paid"
+                        status = "recovered"
+                        amount_recovered = amount
+                    else:
+                        execution_outcome["status"] = "Link sent -> Customer Abandoned"
+                        status = "failed"
                 else:
                     execution_outcome["status"] = "Failed to generate link"
                     status = "failed"
                     
             elif decision.action == "retry_immediately":
-                # Simulate a realistic success/failure split (70% success)
-                if random.random() < 0.70:
-                    execution_outcome["status"] = "Simulated Immediate Retry - Success"
+                from src.services.simulator import PaymentSimulator
+                from evaluate import determine_truth
+                truth = determine_truth(raw_record)
+                success, amount, msg, is_bad = PaymentSimulator.simulate_immediate_retry(truth, record)
+                if success:
+                    execution_outcome["status"] = "Immediate Retry -> Success"
                     status = "recovered"
-                    amount_recovered = record.amount
+                    amount_recovered = amount
                 else:
-                    execution_outcome["status"] = "Simulated Immediate Retry - Failed Again"
-                    status = "escalated"
+                    execution_outcome["status"] = "Immediate Retry -> Failed"
+                    status = "failed"
                 
             elif decision.action == "retry_delayed":
-                execution_outcome["status"] = "Scheduled for 24h retry"
-                status = "delayed"
+                from src.services.simulator import PaymentSimulator
+                from evaluate import determine_truth
+                truth = determine_truth(raw_record)
+                success, amount, msg, is_bad = PaymentSimulator.simulate_delayed_retry(truth, record)
+                if success:
+                    execution_outcome["status"] = "Scheduled 24h -> Success"
+                    status = "recovered"
+                    amount_recovered = amount
+                else:
+                    execution_outcome["status"] = "Scheduled 24h -> Failed"
+                    status = "failed"
                 
             elif decision.action == "escalate_to_human":
                 execution_outcome["status"] = "Escalated to human review"

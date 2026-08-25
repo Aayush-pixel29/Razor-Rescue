@@ -81,32 +81,37 @@ def main():
         
     print("\n[3] Running Strategy B: Razor-Rescue (AI + Guardrails)")
     for i, raw_record in enumerate(raw_records):
-        truth = determine_truth(raw_record)
-        pr = PaymentRecord(**raw_record)
-        
-        classification = classifier_fn(raw_record)
-        decision = decision_engine.decide_action(classification, pr)
-        
-        status = "ignored"
-        amount = 0
-        is_bad = False
-        
-        if decision.action == "send_payment_link":
-            success, amount, msg, is_bad = PaymentSimulator.simulate_payment_link(truth, pr)
-            status = "recovered" if success else "link_abandoned"
-        elif decision.action == "retry_immediately":
-            success, amount, msg, is_bad = PaymentSimulator.simulate_immediate_retry(truth, pr)
-            status = "recovered" if success else "failed"
-        elif decision.action == "retry_delayed":
-            success, amount, msg, is_bad = PaymentSimulator.simulate_delayed_retry(truth, pr)
-            status = "recovered" if success else "failed_after_24h"
-        elif decision.action == "escalate_to_human":
-            status = "escalated"
+        try:
+            truth = determine_truth(raw_record)
+            pr = PaymentRecord(**raw_record)
             
-        log_eval(pr.payment_id, "Razor-Rescue", truth, status, amount, is_bad, classification.model_dump(), decision.model_dump())
-        
-        if not args.fast:
-            time.sleep(4)
+            classification = classifier_fn(raw_record)
+            decision = decision_engine.decide_action(classification, pr)
+            
+            status = "ignored"
+            amount = 0
+            is_bad = False
+            
+            if decision.action == "send_payment_link":
+                success, amount, msg, is_bad = PaymentSimulator.simulate_payment_link(truth, pr)
+                status = "recovered" if success else "link_abandoned"
+            elif decision.action == "retry_immediately":
+                success, amount, msg, is_bad = PaymentSimulator.simulate_immediate_retry(truth, pr)
+                status = "recovered" if success else "failed"
+            elif decision.action == "retry_delayed":
+                success, amount, msg, is_bad = PaymentSimulator.simulate_delayed_retry(truth, pr)
+                status = "recovered" if success else "failed_after_24h"
+            elif decision.action == "escalate_to_human":
+                status = "escalated"
+                
+            log_eval(pr.payment_id, "Razor-Rescue", truth, status, amount, is_bad, classification.model_dump(), decision.model_dump())
+            
+            if not args.fast:
+                time.sleep(4)
+                
+        except Exception as e:
+            print(f"  [ERROR] Graceful degradation on record {raw_record.get('payment_id', 'unknown')}: {e}")
+            log_eval(raw_record.get('payment_id', 'unknown'), "Razor-Rescue", "unknown", "error", 0, False, {"error": str(e)}, {"action": "escalate_to_human", "reason": "Runtime failure - gracefully escalated."})
             
         if (i+1) % 100 == 0:
             print(f"  Processed {i+1}/{args.records} records...")
