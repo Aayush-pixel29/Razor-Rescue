@@ -1,29 +1,39 @@
 # Razor-Rescue: AI Revenue Recovery Agent
+*Submission for Razorpay AI Buildathon (Track 3)*
 
-This project was built for the **Razorpay AI Buildathon** under **Track 3: AI Revenue Recovery**.
+An intelligent, bounded agent that detects failed payments, diagnoses the root cause, and executes a strictly gated recovery action to save revenue without triggering unsafe retries.
 
-## Problem Statement
-Payments fail for many recoverable reasons (bank timeouts, incorrect OTPs, expired cards), but merchants often retry blindly or not at all. This results in wasted money on hopeless retries (like fraud) and lost money on recoverable ones. 
+## The Problem
+Blindly retrying failed payments is dangerous. If you immediately retry an expired card, an OTP failure, or a risky transaction, you will fail again, incur bank penalties, and damage customer trust.
 
 ## The Solution
-Razor-Rescue is an AI-powered agentic workflow that ingests batches of failed payments, uses an LLM to accurately diagnose the root cause, and passes the classification to a strict, deterministic rule engine that executes the most appropriate and compliant recovery action.
+Razor-Rescue acts as a highly intelligent router. It reads the messy error logs of a failed payment, uses an AI model to diagnose the true root cause, and then applies hard-coded Python safety guardrails before deciding to execute a Razorpay action (like sending a payment link, waiting 24 hours, or retrying immediately).
+
+## Evaluation Methodology & Running the Project
+
+This repository contains two distinct execution workflows depending on whether you are running a batch simulation evaluation or hitting the live Razorpay Test APIs.
+
+### 1. The Evaluation Harness (Simulation & Benchmarking)
+Proves the mathematical ROI of the agent against a "Blind Retry" baseline.
+```bash
+python evaluate.py --records 5000 --fast
+streamlit run dashboard.py
+```
+**Methodology:**
+- **Dataset:** Synthetic failed payments generated internally.
+- **Seed:** 42 (Deterministic for reproducible testing)
+- **Baseline:** Strategy A (Blind immediate retry for all failures)
+- **Agent:** Strategy B (Razor-Rescue AI diagnosis + Guardrail engine)
+- **Outcome model:** Cause-specific recovery simulator (e.g. 40% conversion on links)
+- **Metrics Evaluated:** Recovery rate, INR recovered, Unsafe retries avoided, Human escalation volume.
+
+### 2. The Execution Engine (Razorpay Test APIs)
+Runs the agent in an execution loop that actually triggers the Razorpay Python SDK to generate Payment Links.
+```bash
+python run.py
+```
 
 ## Architecture
-
-```mermaid
-graph TD
-    A[Batch of Failed Payments] -->|JSON Input| B(LLM Classifier Agent)
-    B -->|Root Cause + Reasoning| C{Decision Engine Guardrails}
-    C -->|Risky Card| D[Escalate to Human]
-    C -->|Max Retries Exceeded| D
-    C -->|Insufficient Funds| E[Schedule 24h Delay]
-    C -->|Network Timeout| F[Simulate Immediate Retry]
-    C -->|OTP/Expired Card| G[Create Razorpay Payment Link]
-    D --> H[(Audit SQLite Log)]
-    E --> H
-    F --> H
-    G --> H
-```
 
 ### 1. Classifier Agent (AI)
 Uses Gemini 1.5 Flash to parse the messy error descriptions and metadata. It outputs a strictly typed JSON containing the `root_cause`, a `confidence_score`, and its `reasoning`.
@@ -35,9 +45,9 @@ The LLM **never** decides to move money directly. It only classifies. The Decisi
 Connects to Razorpay Test APIs to generate a new Payment Link when the user needs to re-authenticate (OTP failure) or use a different payment method (Card Expired).
 
 ### 4. Audit & Metrics (Structured Logging)
-Every single step (Input -> LLM Thought -> Guardrail Decision -> API Outcome) is logged into an SQLite database (`audit.db`). This guarantees total explainability and allows us to generate honest, measured metrics (Recovery Rate and INR Amount Recovered). In a production deployment, this SQLite logger would be replaced with a structured logging pipeline (e.g., ELK stack).
+Every single step (Input -> LLM Thought -> Guardrail Decision -> API Outcome) is logged into an SQLite database (`audit.db` or `evaluation.db`). This guarantees total explainability and allows us to generate honest, measured metrics (Recovery Rate and INR Amount Recovered). 
 
-## How to Run
+## How to Set Up
 
 1. Clone the repo and install dependencies:
 ```bash
@@ -49,17 +59,6 @@ pip install -r requirements.txt
 RAZORPAY_KEY_ID=rzp_test_...
 RAZORPAY_KEY_SECRET=...
 GEMINI_API_KEY=...
-```
-
-3. Run the backend batch process:
-```bash
-python run.py
-```
-
-4. **Launch the Audit Dashboard (UI)**:
-After `audit.db` is generated, run the Streamlit dashboard to visually audit the LLM decisions vs Guardrails:
-```bash
-streamlit run dashboard.py
 ```
 
 ## Running Tests

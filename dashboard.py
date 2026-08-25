@@ -61,7 +61,7 @@ else:
     c1.metric("Total Failed Payments Analyzed", f"{total_records:,}")
     c2.metric("Total INR Recovered", f"₹ {ai_inr:,.2f}")
     c3.metric("Recovery Rate", f"{ai_rate:.1f}%")
-    c4.metric("Prevented Unsafe Retries", f"{len(b_bad_retries) - len(ai_bad_retries):,}")
+    c4.metric("Unsafe Retries Avoided vs Baseline", f"{len(b_bad_retries) - len(ai_bad_retries):,}")
     
     st.markdown("---")
     
@@ -95,7 +95,7 @@ else:
         st.altair_chart(chart_unsafe, use_container_width=True)
         
     with col_chart2:
-        st.subheader("Failure Intelligence")
+        st.subheader("Failure Mix — Synthetic Ground Truth")
         cause_counts = ai_df['ground_truth_cause'].value_counts().reset_index()
         cause_counts.columns = ['Cause', 'Count']
         donut = alt.Chart(cause_counts).mark_arc(innerRadius=60).encode(
@@ -132,7 +132,7 @@ else:
             with p2:
                 st.warning(f"**2. Policy Engine**\n\n{dec_data.get('reason', 'Policy applied')}")
             with p3:
-                st.success(f"**3. Razor-Rescue Action**\n\n**{dec_data.get('action', 'Escalated')}**\n(Safe)")
+                st.success(f"**3. Razor-Rescue Action**\n\n**{dec_data.get('action', 'Escalated')}**\n*(Policy-Compliant)*")
             with p4:
                 st.error(f"**vs. Blind Retry Action**\n\n**{b_record['status']}**\n(Bank Penalty)")
                 
@@ -145,7 +145,19 @@ else:
                 
     st.markdown("---")
     st.subheader("Complete Audit Trail")
-    display_cols = ['payment_id', 'ground_truth_cause', 'status', 'amount_recovered']
-    display_df = ai_df[display_cols].copy()
+    display_df = ai_df.copy()
     display_df['amount_recovered'] = display_df['amount_recovered'] / 100
-    st.dataframe(display_df, use_container_width=True)
+    
+    def extract_conf(row):
+        try: return float(json.loads(row)['confidence_score'])
+        except: return 0.0
+        
+    def extract_action(row):
+        try: return json.loads(row)['action']
+        except: return "unknown"
+        
+    display_df['AI_Confidence'] = display_df['llm_classification'].apply(extract_conf)
+    display_df['Policy_Action'] = display_df['guardrail_action'].apply(extract_action)
+    
+    display_cols = ['payment_id', 'ground_truth_cause', 'AI_Confidence', 'Policy_Action', 'status', 'amount_recovered']
+    st.dataframe(display_df[display_cols], use_container_width=True)
